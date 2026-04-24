@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KrakenDB.Server/KrakenDB.Server.csproj" />
+  </Folder>
+</Solution>
