@@ -18,7 +18,13 @@ namespace KrakenDB.Server.Storage
             if (!File.Exists(_filePath))
             {
                 Console.WriteLine("[Storage] Database not found. Creating new file...");
-                CreateEmptyDatabase();
+                File.Create(_filePath).Close();
+
+                Page masterPage = new Page(0, PageType.Master);
+                masterPage.WriteText("CATALOGO_MESTRE: NENHUMA_TABELA_CRIADA_AINDA");
+
+                WritePage(masterPage);
+                Console.WriteLine($"[Storage] Page 0 (Master Catalog) has been allocated and saved.");
             }
             else
             {
@@ -26,16 +32,27 @@ namespace KrakenDB.Server.Storage
             }
         }
 
-        private void CreateEmptyDatabase()
+        public void WritePage(Page page)
         {
-            using (FileStream fs = new FileStream(_filePath, FileMode.Create, FileAccess.Write))
-            using (BinaryWriter writer = new BinaryWriter(fs))
+            using (FileStream fs = new FileStream(_filePath, FileMode.Open, FileAccess.Write))
             {
-                byte[] pageZero = new byte[PAGE_SIZE];
+                fs.Seek(page.PageId * PAGE_SIZE, SeekOrigin.Begin);
                 
-                writer.Write(pageZero);
+                byte[] data = page.Serialize();
+                fs.Write(data, 0, data.Length);
+            }
+        }
+
+        public Page ReadPage(int pageId)
+        {
+            using (FileStream fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
+            {
+                fs.Seek(pageId * PAGE_SIZE, SeekOrigin.Begin);
                 
-                Console.WriteLine($"[Storage] Page 0 allocated with {PAGE_SIZE} bytes.");
+                byte[] buffer = new byte[PAGE_SIZE];
+                fs.Read(buffer, 0, buffer.Length);
+                
+                return Page.Deserialize(buffer);
             }
         }
     }
