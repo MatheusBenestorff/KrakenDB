@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace KrakenDB.Server.Storage
 {
     public class DiskManager
@@ -21,7 +23,7 @@ namespace KrakenDB.Server.Storage
                 File.Create(_filePath).Close();
 
                 Page masterPage = new Page(0, PageType.Master);
-                masterPage.WriteText("CATALOGO_MESTRE: NENHUMA_TABELA_CRIADA_AINDA");
+                masterPage.InsertRecord(Encoding.UTF8.GetBytes("KRAKEN_DB_MASTER_CATALOG"));
 
                 WritePage(masterPage);
                 Console.WriteLine($"[Storage] Page 0 (Master Catalog) has been allocated and saved.");
@@ -48,9 +50,14 @@ namespace KrakenDB.Server.Storage
             using (FileStream fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
             {
                 fs.Seek(pageId * PAGE_SIZE, SeekOrigin.Begin);
-                
                 byte[] buffer = new byte[PAGE_SIZE];
-                fs.Read(buffer, 0, buffer.Length);
+                
+                int bytesRead = fs.Read(buffer, 0, buffer.Length);
+                
+                if (bytesRead != PAGE_SIZE)
+                {
+                    throw new InvalidDataException($"[CRITICAL ERROR] The disk returned only {bytesRead} bytes. Expected {PAGE_SIZE}. The database file may be corrupted or empty.");
+                }
                 
                 return Page.Deserialize(buffer);
             }
