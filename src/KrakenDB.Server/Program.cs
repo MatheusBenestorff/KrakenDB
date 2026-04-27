@@ -14,34 +14,51 @@ namespace KrakenDB.Server
             DiskManager disk = new DiskManager("master");
             disk.InitializeDatabase(); 
 
-            Console.WriteLine("\n[KrakenDB] Inserindo 3 registros no Catálogo Mestre...");
+            Console.WriteLine("\n[KrakenDB] Iniciando inserção em massa de 500 registros...");
             
-            Page masterPage = disk.ReadPage(0);
-            
-            masterPage.InsertRecord(Encoding.UTF8.GetBytes("TABELA_USUARIOS"));
-            masterPage.InsertRecord(Encoding.UTF8.GetBytes("TABELA_PRODUTOS"));
-            masterPage.InsertRecord(Encoding.UTF8.GetBytes("ESTE_EH_UM_REGISTRO_MUITO_MAIOR_PARA_TESTAR_O_TAMANHO_DINAMICO"));
+            Page currentPage = disk.ReadPage(0);
+            int totalInseridos = 0;
 
-            disk.WritePage(masterPage);
-            Console.WriteLine("[KrakenDB] Registros gravados no disco físico com sucesso.");
-
-
-            Console.WriteLine("\n[KrakenDB] Lendo registros direto do disco...");
-            Page paginaLidaDoDisco = disk.ReadPage(0);
-
-            Console.WriteLine($"\n--- RAIO-X DA PÁGINA {paginaLidaDoDisco.PageId} ---");
-            Console.WriteLine($"Total de Linhas: {paginaLidaDoDisco.RecordCount}");
-            Console.WriteLine($"Espaço Livre Restante: {paginaLidaDoDisco.FreeSpace} bytes");
-            Console.WriteLine($"Próxima Página: {paginaLidaDoDisco.NextPageId}");
-            
-            Console.WriteLine("\nConteúdo das Linhas:");
-            List<byte[]> registros = paginaLidaDoDisco.GetAllRecords();
-            
-            for (int i = 0; i < registros.Count; i++)
+            for (int i = 1; i <= 500; i++)
             {
-                string texto = Encoding.UTF8.GetString(registros[i]);
-                Console.WriteLine($"  -> Linha {i + 1} (Tamanho: {registros[i].Length} bytes): {texto}");
+                byte[] data = Encoding.UTF8.GetBytes($"REGISTRO_DE_TESTE_NUMERO_{i}_COM_BASTANTE_TEXTO_PARA_ENCHER_O_VAGAO_RAPIDO");
+                
+                if (!currentPage.InsertRecord(data))
+                {
+                    Page newPage = disk.AllocateNewPage(PageType.Data);
+                    
+                    currentPage.NextPageId = newPage.PageId;
+                    
+                    disk.WritePage(currentPage);
+                    
+                    currentPage = newPage;
+                    
+                    currentPage.InsertRecord(data);
+                }
+                totalInseridos++;
             }
+            
+            disk.WritePage(currentPage);
+            Console.WriteLine($"[KrakenDB] {totalInseridos} registros gravados com sucesso!");
+
+            Console.WriteLine("\n[KrakenDB] Lendo todo o banco de dados seguindo os ponteiros...");
+            
+            int paginaAtualId = 0;
+            int totalLido = 0;
+
+            while (paginaAtualId != -1) 
+            {
+                Page page = disk.ReadPage(paginaAtualId);
+                
+                Console.WriteLine($"\n--- LENDO PÁGINA {page.PageId} ---");
+                Console.WriteLine($"Linhas aqui: {page.RecordCount} | Espaço Livre: {page.FreeSpace} bytes | Próxima Página: {page.NextPageId}");
+                
+                totalLido += page.RecordCount;
+                
+                paginaAtualId = page.NextPageId; 
+            }
+
+            Console.WriteLine($"\n[KrakenDB] Leitura finalizada! Total de linhas encontradas: {totalLido}");
             Console.WriteLine("--------------------------\n");
         }
     }

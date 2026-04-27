@@ -45,6 +45,21 @@ namespace KrakenDB.Server.Storage
             }
         }
 
+        public Page AllocateNewPage(PageType type)
+        {
+            FileInfo fileInfo = new FileInfo(_filePath);
+            
+            int newPageId = (int)(fileInfo.Length / PAGE_SIZE);
+
+            Page newPage = new Page(newPageId, type);
+            
+            WritePage(newPage);
+            
+            Console.WriteLine($"[Storage] + New Page Allocated: ID {newPageId} (Type: {type})");
+            
+            return newPage;
+        }
+
         public Page ReadPage(int pageId)
         {
             using (FileStream fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read))
