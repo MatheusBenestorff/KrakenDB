@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using KrakenDB.Server.Storage;
 using KrakenDB.Server.Execution;
+using KrakenDB.Server.Parsing;
 
 namespace KrakenDB.Server.Network
 {
@@ -13,12 +14,14 @@ namespace KrakenDB.Server.Network
         private readonly int _port;
         private readonly DiskManager _disk;
         private readonly QueryEngine _queryEngine;
+        private readonly SqlParser _sqlParser;
 
         public KrakenHost(DiskManager disk, int port = 5432)
         {
             _disk = disk;
             _port = port;
             _queryEngine = new QueryEngine();
+            _sqlParser = new SqlParser();
         }
 
         public async Task StartAsync()
@@ -46,12 +49,22 @@ namespace KrakenDB.Server.Network
 
                 if (bytesRead > 0)
                 {
-                    string jsonRequest = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    Console.WriteLine($"\n[Network] Command Received: {jsonRequest}");
+                    string sqlRequest = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
+                    Console.WriteLine($"\n[Network] SQL Command Received: {sqlRequest}");
 
-                    KrakenCommand command = JsonSerializer.Deserialize<KrakenCommand>(jsonRequest);
+                    KrakenResult result;
 
-                    KrakenResult result = _queryEngine.Process(command, _disk);
+                    try
+                    {
+                        KrakenCommand command = _sqlParser.Parse(sqlRequest);
+
+                        result = _queryEngine.Process(command, _disk);
+                    }
+                    catch (Exception ex)
+                    {
+                        result = new KrakenResult { Success = false, Message = ex.Message };
+                        Console.WriteLine($"[Parser] Failure: {ex.Message}");
+                    }
 
                     string jsonResponse = JsonSerializer.Serialize(result);
                     byte[] responseBytes = Encoding.UTF8.GetBytes(jsonResponse);

@@ -4,6 +4,7 @@ namespace KrakenDB.Server.Network
     {
         public string Action { get; set; } 
         public string Table { get; set; } 
-        public string Data { get; set; }  
+        public List<string> Columns { get; set; } = new List<string>(); 
+        public string Data { get; set; }
     }
 }
