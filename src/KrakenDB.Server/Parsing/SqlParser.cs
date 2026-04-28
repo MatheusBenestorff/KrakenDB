@@ -1,9 +1,21 @@
 using KrakenDB.Server.Network;
+using KrakenDB.Server.Parsing.Statements;
 
 namespace KrakenDB.Server.Parsing
 {
     public class SqlParser
     {
+        private readonly Dictionary<string, ISqlStatementParser> _statementParsers;
+        
+        public SqlParser()
+        {
+            _statementParsers = new Dictionary<string, ISqlStatementParser>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "SELECT", new SelectParser() },
+                { "INSERT", new InsertParser() }
+            };
+        }
+
         public KrakenCommand Parse(string sqlQuery)
         {
             if (string.IsNullOrWhiteSpace(sqlQuery))
@@ -16,58 +28,13 @@ namespace KrakenDB.Server.Parsing
 
             string action = tokens.Dequeue().ToUpper(); 
 
-            switch (action)
+            if (_statementParsers.TryGetValue(action, out ISqlStatementParser parser))
             {
-                case "SELECT":
-                    return ParseSelect(tokens);
-                case "INSERT":
-                    return ParseInsert(tokens);
-                default:
-                    throw new Exception($"Command not supported: {action}");
+                return parser.Parse(tokens);
             }
-        }
-
-        // SUB-PARSERS
-
-        private KrakenCommand ParseSelect(Queue<string> tokens)
-        {
-            var command = new KrakenCommand { Action = "SELECT" };
-
-            string columns = tokens.Dequeue();
-            command.Columns.Add(columns); 
-
-            if (tokens.Dequeue().ToUpper() != "FROM")
-                throw new Exception("Syntax error. The word ‘FROM’ was expected.");
-
-            command.Table = tokens.Dequeue();
-
-            if (tokens.Count > 0)
-            {
-                string nextWord = tokens.Peek().ToUpper();
-                if (nextWord == "WHERE")
-                {
-                    // ParseWhere(tokens, command); 
-                }
-            }
-
-            return command;
-        }
-
-        private KrakenCommand ParseInsert(Queue<string> tokens)
-        {
-            var command = new KrakenCommand { Action = "INSERT" };
-
-            if (tokens.Dequeue().ToUpper() != "INTO")
-                throw new Exception("Syntax error. The word ‘INTO’ was expected.");
-
-            command.Table = tokens.Dequeue();
-
-            if (tokens.Dequeue().ToUpper() != "VALUES")
-                throw new Exception("Syntax error. The word ‘VALUES’ was expected.");
-
-            command.Data = tokens.Dequeue(); 
-
-            return command;
+            
+            throw new Exception($"Command not supported: {action}");
+            
         }
 
         // LEXER
