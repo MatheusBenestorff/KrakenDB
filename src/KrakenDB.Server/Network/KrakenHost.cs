@@ -48,13 +48,73 @@ namespace KrakenDB.Server.Network
                     Console.WriteLine($"\n[Network] Command Received: {jsonRequest}");
 
                     KrakenCommand command = JsonSerializer.Deserialize<KrakenCommand>(jsonRequest);
+                    KrakenResult result = new KrakenResult { Success = true };
 
-                    
-                    KrakenResult result = new KrakenResult
+                    // Execution Engine
+                    if (command != null)
                     {
-                        Success = true,
-                        Message = $"The {command?.Action} command was successfully received and interpreted by KrakenDB!"
-                    };
+                        if (command.Action.ToUpper() == "INSERT")
+                        {
+                            string recordText = $"{command.Table}|{command.Data}";
+                            byte[] recordBytes = Encoding.UTF8.GetBytes(recordText);
+
+                            int currentPageId = 0;
+                            Page currentPage = _disk.ReadPage(currentPageId);
+                            
+                            while (currentPage.NextPageId != -1)
+                            {
+                                currentPage = _disk.ReadPage(currentPage.NextPageId);
+                            }
+
+                            if (!currentPage.InsertRecord(recordBytes))
+                            {
+                                Page newPage = _disk.AllocateNewPage(PageType.Data);
+                                currentPage.NextPageId = newPage.PageId;
+                                _disk.WritePage(currentPage); 
+                                
+                                newPage.InsertRecord(recordBytes);
+                                _disk.WritePage(newPage);  
+                            }
+                            else
+                            {
+                                _disk.WritePage(currentPage); 
+                            }
+
+                            result.Message = $"1 registro inserido na tabela {command.Table}.";
+                            Console.WriteLine($"[Execution] Sucesso: Gravado no disco físico.");
+                        }
+                        else if (command.Action.ToUpper() == "SELECT")
+                        {
+                            var foundRows = new System.Collections.Generic.List<string>();
+                            int currentPageId = 0;
+
+                            while (currentPageId != -1)
+                            {
+                                Page page = _disk.ReadPage(currentPageId);
+                                var records = page.GetAllRecords();
+                                
+                                foreach (var rec in records)
+                                {
+                                    string text = Encoding.UTF8.GetString(rec);
+                                    
+                                    if (text.StartsWith(command.Table + "|"))
+                                    {
+                                        foundRows.Add(text.Substring(command.Table.Length + 1));
+                                    }
+                                }
+                                currentPageId = page.NextPageId;
+                            }
+
+                            result.Message = $"{foundRows.Count} registros encontrados.";
+                            result.Data = foundRows.ToArray();
+                            Console.WriteLine($"[Execution] Sucesso: {foundRows.Count} linhas lidas do disco.");
+                        }
+                        else
+                        {
+                            result.Success = false;
+                            result.Message = "Comando desconhecido. Use INSERT ou SELECT.";
+                        }
+                    }
 
                     string jsonResponse = JsonSerializer.Serialize(result);
                     byte[] responseBytes = Encoding.UTF8.GetBytes(jsonResponse);
