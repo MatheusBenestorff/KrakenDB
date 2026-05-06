@@ -13,7 +13,8 @@ namespace KrakenDB.Server.Execution
             _executors = new Dictionary<string, IQueryExecutor>(StringComparer.OrdinalIgnoreCase)
             {
                 { "INSERT", new InsertExecutor() },
-                { "SELECT", new SelectExecutor() }
+                { "SELECT", new SelectExecutor() },
+                { "DELETE", new DeleteExecutor() } 
             };
         }
 

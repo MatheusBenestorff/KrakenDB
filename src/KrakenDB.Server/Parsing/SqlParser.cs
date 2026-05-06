@@ -12,7 +12,8 @@ namespace KrakenDB.Server.Parsing
             _statementParsers = new Dictionary<string, ISqlStatementParser>(StringComparer.OrdinalIgnoreCase)
             {
                 { "SELECT", new SelectParser() },
-                { "INSERT", new InsertParser() }
+                { "INSERT", new InsertParser() },
+                { "DELETE", new DeleteParser() } 
             };
         }
 

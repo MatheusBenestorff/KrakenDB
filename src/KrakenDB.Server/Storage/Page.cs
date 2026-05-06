@@ -97,6 +97,14 @@ namespace KrakenDB.Server.Storage
             return true; 
         }
 
+        public void Clear()
+        {
+            RecordCount = 0;
+            FreeSpace = PAGE_SIZE - HEADER_SIZE;
+            
+            Array.Clear(Payload, 0, Payload.Length);
+        }
+
         public List<byte[]> GetAllRecords()
         {
             List<byte[]> records = new List<byte[]>();
